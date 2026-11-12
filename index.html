@@ -444,18 +444,30 @@ async function callClaude({ system, messages, max_tokens }){
     const d = await r.json().catch(()=>null);
     if(!d) throw new Error("The Worker sent an unreadable reply (status " + r.status + ").");
     if(r.ok){
+      // Some Workers pass an Anthropic error through with status 200: show it instead of hiding it
+      if(d.type==="error" || d.error) throw new Error(errText(d, r.status));
       const text = d.text || (d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+      if(!text.trim()){
+        const why = d.stop_reason==="max_tokens" ? "it ran out of space before writing anything"
+                  : d.stop_reason==="refusal" ? "Claude declined to answer this request"
+                  : "the reply was empty";
+        throw new Error("Claude sent no text (" + why + "; stop reason: " + (d.stop_reason || "unknown") +
+          "). What the Worker sent back starts with: " + JSON.stringify(d).slice(0, 300));
+      }
       return { text, stop: d.stop_reason };
     }
     if((r.status===429 || r.status===529 || r.status===503) && attempt<2){ await sleep(2500*(attempt+1)); continue; }
     throw new Error(errText(d, r.status));
   }
 }
-function parseJSON(text){
+function parseJSON(text, stop){
   let t = String(text||"").replace(/```json|```/g,"").trim();
+  const start = JSON.stringify(t.slice(0, 200));
+  if(stop==="max_tokens") throw new Error("Claude's reply was cut off because it was too long, so it could not be read. Try again, or choose a different Artificial intelligence quality. The reply began: " + start);
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
-  if(a<0 || b<a) throw new Error("No JSON found");
-  return JSON.parse(t.slice(a, b+1));
+  if(a<0 || b<a) throw new Error("Claude replied in plain text instead of the expected data format. The reply began: " + start);
+  try{ return JSON.parse(t.slice(a, b+1)); }
+  catch(e){ throw new Error("Claude's reply was in a damaged data format (" + e.message + "). The reply began: " + start); }
 }
 
 /* ---------- Case files ---------- */
@@ -838,9 +850,9 @@ async function startRounds(){
       let k = null, lastErr;
       for(let i=0;i<2 && !k;i++){
         try{
-          const r = await callClaude({ system: prepSystem(), messages:[{ role:"user", content:"<case_file>\n" + S.caseText + "\n</case_file>\n\nPrepare the answer key now." }], max_tokens: 3000 });
-          k = parseJSON(r.text);
-        }catch(err){ lastErr = err; if(/access code|ALLOWED_ORIGINS|API_KEY|credit|Worker/i.test(err.message)) break; }
+          const r = await callClaude({ system: prepSystem(), messages:[{ role:"user", content:"<case_file>\n" + S.caseText + "\n</case_file>\n\nPrepare the answer key now." }], max_tokens: 6000 });
+          k = parseJSON(r.text, r.stop);
+        }catch(err){ lastErr = err; if(/access code|ALLOWED_ORIGINS|API_KEY|x-api-key|credit|Worker|model|not_found|authentication/i.test(err.message)) break; }
       }
       if(!k) throw lastErr || new Error("Doctor Bernd could not read the case.");
       S.key = k; S.keyHash = wantKey;
@@ -881,7 +893,7 @@ function parseState(raw){
 async function askBernd(myRun){
   S.busy = true; updateControls(); showTyping(true);
   try{
-    const r = await callClaude({ system: S.quizSystem, messages: S.messages, max_tokens: 8000 });
+    const r = await callClaude({ system: S.quizSystem, messages: S.messages, max_tokens: 900 });
     if(myRun !== S.runId) return;
     showTyping(false);
     const { state, clean } = parseState(r.text);
@@ -1017,7 +1029,7 @@ Write the review now.`;
     for(let i=0;i<2 && !rev;i++){
       try{
         const r = await callClaude({ system: reviewSystem(), messages:[{ role:"user", content:user }], max_tokens: 8000 });
-        rev = parseJSON(r.text);
+        rev = parseJSON(r.text, r.stop);
       }catch(err){ lastErr = err; }
     }
     if(myRun !== S.runId) return;
