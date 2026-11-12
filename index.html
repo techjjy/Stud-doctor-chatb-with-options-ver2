@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doctor Bernd's Case Rounds</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --ink:#1d2733; --muted:#5e6b78; --line:#dde3e9;
+    --brand:#1f5f8b; --brand2:#2f7fb5; --ok:#1e7d4f; --warn:#b26a00; --bad:#b3261e;
+    --bernd:#eaf2f8; --learner:#eef7ee; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  header{background:var(--brand);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-size:1.25rem;margin:0;flex:1}
+  header .sub{font-size:.85rem;opacity:.85;display:block;font-weight:400}
+  .badge{font-size:.78rem;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.18)}
+  .badge.ok{background:#2e9e64}.badge.bad{background:#c0392b}
+  main{max-width:980px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 12px;font-size:1.05rem;color:var(--brand)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 18px}
+  label{font-size:.88rem;font-weight:600;display:block;margin-bottom:4px}
+  .hint{font-size:.8rem;color:var(--muted);margin-top:3px}
+  input[type=text],input[type=password],input[type=url],select,textarea{width:100%;padding:9px 10px;border:1px solid #c5cfd8;border-radius:8px;font:inherit;background:#fff}
+  textarea{resize:vertical}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;border:1px solid #b8c4cf;background:#fff;color:var(--ink);padding:9px 14px;border-radius:8px;cursor:pointer}
+  button:hover:not(:disabled){background:#f0f4f7}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  button.primary:hover:not(:disabled){background:var(--brand2)}
+  button.hold{background:#fff4e0;border-color:#e0b46a}
+  button.cont{background:#e5f5ec;border-color:#86c7a3}
+  button.reset{background:#f3eefc;border-color:#b9a6e3}
+  button.end{background:#fdecea;border-color:#e3a39d}
+  button.big{padding:12px 22px;font-size:1.05rem}
+  .check{display:flex;gap:8px;align-items:center;font-weight:500}
+  .check input{width:auto}
+  .msg{padding:10px;border-radius:8px;margin-top:10px;font-size:.9rem}
+  .msg.err{background:#fdecea;color:var(--bad)} .msg.ok{background:#e7f5ed;color:var(--ok)} .msg.info{background:#eef4fa;color:var(--brand)}
+  .hidden{display:none !important}
+  /* session */
+  .statusbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .pill{font-size:.8rem;background:#eef2f6;border:1px solid var(--line);padding:4px 10px;border-radius:999px}
+  .pill b{color:var(--brand)}
+  .pill.state{margin-left:auto}
+  .pill.state.listen{background:#fdecea;color:var(--bad);border-color:#f2b8b3}
+  .pill.state.speak{background:#eaf2f8;color:var(--brand)}
+  .pill.state.held{background:#fff4e0;color:var(--warn)}
+  #chat{height:430px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:12px;background:#fbfcfd}
+  .bubble{max-width:82%;padding:10px 13px;border-radius:12px;margin:8px 0;white-space:pre-wrap}
+  .bubble .who{font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:2px}
+  .bubble.bernd{background:var(--bernd);border-top-left-radius:3px}
+  .bubble.learner{background:var(--learner);margin-left:auto;border-top-right-radius:3px}
+  .bubble.sys{background:none;color:var(--muted);font-size:.85rem;text-align:center;max-width:100%;font-style:italic}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .inputrow{display:flex;gap:8px;align-items:flex-end}
+  .inputrow textarea{flex:1;min-height:52px}
+  #micBtn{font-size:1.4rem;width:58px;height:52px;padding:0;border-radius:50%}
+  #micBtn.on{background:var(--bad);color:#fff;border-color:var(--bad);animation:pulse 1.2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(179,38,30,.5)}70%{box-shadow:0 0 0 12px rgba(179,38,30,0)}100%{box-shadow:0 0 0 0 rgba(179,38,30,0)}}
+  #caseView{white-space:pre-wrap;max-height:300px;overflow:auto;background:#fafafa;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:.85rem;margin-top:8px}
+  .thinking{display:inline-block}
+  .thinking::after{content:"…";animation:dots 1.2s steps(3,end) infinite}
+  @keyframes dots{0%{content:"."}33%{content:".."}66%{content:"..."}}
+  /* review */
+  .scorebox{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .score{font-size:2.4rem;font-weight:800;color:var(--brand)}
+  .band{font-size:1rem;font-weight:700;padding:4px 12px;border-radius:999px;background:#eef2f6}
+  .review h3{font-size:.95rem;margin:16px 0 6px;color:var(--brand)}
+  .review ul{margin:4px 0;padding-left:22px}
+  .review li{margin:3px 0}
+  table.q{width:100%;border-collapse:collapse;font-size:.85rem}
+  table.q td,table.q th{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+  .v-Strong{color:var(--ok);font-weight:700}.v-Partial{color:var(--warn);font-weight:700}.v-Missed{color:var(--bad);font-weight:700}
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .modal .box{background:#fff;border-radius:12px;padding:20px;max-width:480px;width:100%}
+  .modal h3{margin-top:0;color:var(--brand)}
+  details summary{cursor:pointer;color:var(--brand);font-weight:600;margin-top:10px}
+  @media print{header,.controls,.inputrow,#setupCard,#sessionCard,.noprint{display:none !important} .card{border:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🩺 Doctor Bernd's Case Rounds <span class="sub">Infant case quiz for medical students and residents</span></h1>
+  <span id="connBadge" class="badge">Not connected</span>
+  <button id="connBtn" class="noprint">⚙ Connection</button>
+</header>
+
+<main>
+  <!-- ===================== SETUP ===================== -->
+  <section id="setupCard" class="card">
+    <h2>Step 1 · Patient case file</h2>
+    <div class="grid">
+      <div>
+        <label for="fileInput">Choose a case file from your computer</label>
+        <input id="fileInput" type="file" accept=".txt,.md,.docx,.pdf,text/plain">
+        <div class="hint">Text (.txt, .md), Word (.docx) or PDF with selectable text.</div>
+      </div>
+      <div>
+        <label for="caseSelect">…or choose a shared case</label>
+        <select id="caseSelect"><option value="">(loading list…)</option></select>
+      </div>
+    </div>
+    <div id="caseStatus" class="msg info hidden"></div>
+
+    <h2 style="margin-top:20px">Step 2 · Learner and level</h2>
+    <div class="grid">
+      <div>
+        <label for="learnerName">Learner's name (optional)</label>
+        <input id="learnerName" type="text" placeholder="for example Sara">
+      </div>
+      <div>
+        <label for="levelSelect">Seniority</label>
+        <select id="levelSelect">
+          <option value="preclinical">Pre-clinical medical student (years 1 to 2)</option>
+          <option value="clinical" selected>Clinical medical student (years 3 to 4)</option>
+          <option value="intern">Intern or first-year resident</option>
+          <option value="senior">Senior resident (years 2 to 3)</option>
+          <option value="fellow">Fellow or registrar</option>
+        </select>
+        <div class="hint">Doctor Bernd's questions get more advanced with seniority.</div>
+      </div>
+      <div>
+        <label for="lengthSelect">Quiz length</label>
+        <select id="lengthSelect">
+          <option value="6">Short (about 6 questions)</option>
+          <option value="10" selected>Standard (about 10 questions)</option>
+          <option value="14">Long (about 14 questions)</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label class="check"><input id="redHerring" type="checkbox" checked> Include a red herring</label>
+        <div class="hint">A tempting but misleading detail that separates strong from average reasoning.</div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:20px">Step 3 · Voice and quality</h2>
+    <div class="grid">
+      <div>
+        <label for="langSelect">Accent and speech recognition</label>
+        <select id="langSelect">
+          <option value="en-GB" selected>English (United Kingdom)</option>
+          <option value="en-US">English (United States)</option>
+          <option value="en-AU">English (Australia)</option>
+          <option value="en-IE">English (Ireland)</option>
+        </select>
+      </div>
+      <div>
+        <label for="voiceSelect">Doctor Bernd's voice</label>
+        <select id="voiceSelect"></select>
+        <div class="hint">Voices marked (male) are best. <a href="#" id="testVoice">🔊 Test Doctor Bernd's voice</a></div>
+      </div>
+      <div>
+        <label for="rateSelect">Speaking speed</label>
+        <select id="rateSelect">
+          <option value="0.9">Slower</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.1">Faster</option>
+        </select>
+      </div>
+      <div>
+        <label for="pauseSelect">Send my spoken answer after a pause of</label>
+        <select id="pauseSelect">
+          <option value="1800">1.8 seconds</option>
+          <option value="2500" selected>2.5 seconds</option>
+          <option value="3500">3.5 seconds</option>
+          <option value="5000">5 seconds</option>
+        </select>
+      </div>
+      <div>
+        <label for="tierSelect">Artificial intelligence quality</label>
+        <select id="tierSelect">
+          <option value="fast">Fast (cheapest)</option>
+          <option value="balanced" selected>Balanced (recommended)</option>
+          <option value="thorough">Thorough (most expensive)</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label class="check"><input id="speakAloud" type="checkbox" checked> Doctor Bernd speaks aloud</label>
+        <label class="check"><input id="useMic" type="checkbox" checked> Answer with my voice (microphone)</label>
+      </div>
+    </div>
+    <div id="setupMsg" class="msg hidden"></div>
+    <div class="row" style="margin-top:16px">
+      <button id="startBtn" class="primary big">▶ Start case rounds</button>
+    </div>
+  </section>
+
+  <!-- ===================== SESSION ===================== -->
+  <section id="sessionCard" class="card hidden">
+    <div class="statusbar">
+      <span class="pill">Phase: <b id="phase">Starting</b></span>
+      <span class="pill">Question <b id="qNum">0</b> of about <b id="qTotal">10</b></span>
+      <span class="pill">Difficulty: <b id="diff">standard</b></span>
+      <span class="pill">⏱ <b id="clock">00:00</b></span>
+      <span id="statePill" class="pill state">Ready</span>
+    </div>
+    <div id="chat" aria-live="polite"></div>
+
+    <div class="controls">
+      <button id="holdBtn" class="hold">⏸ Hold</button>
+      <button id="contBtn" class="cont" disabled>▶ Continuation</button>
+      <button id="resetBtn" class="reset">↺ Reset</button>
+      <button id="endBtn" class="end">⏹ End and review</button>
+      <button id="caseToggle" class="hidden">📄 Show the patient case file</button>
+    </div>
+    <div id="caseView" class="hidden"></div>
+
+    <div class="inputrow">
+      <button id="micBtn" title="Click to talk; click again to send now">🎤</button>
+      <textarea id="answerBox" placeholder="Speak, or type your answer and press Enter (Shift+Enter for a new line). Say or type “stop” to end."></textarea>
+      <button id="sendBtn" class="primary">Send</button>
+    </div>
+    <div id="sessionMsg" class="msg hidden"></div>
+  </section>
+
+  <!-- ===================== REVIEW ===================== -->
+  <section id="reviewCard" class="card review hidden"></section>
+</main>
+
+<!-- Connection modal -->
+<div id="connModal" class="modal hidden">
+  <div class="box">
+    <h3>⚙ Connection</h3>
+    <label for="workerUrl">Cloudflare Worker address</label>
+    <input id="workerUrl" type="url" placeholder="https://infant-case-rounds.YOUR-SUBDOMAIN.workers.dev">
+    <label for="accessCode" style="margin-top:10px">Access code</label>
+    <input id="accessCode" type="password" placeholder="the ACCESS_CODE you set in Cloudflare">
+    <div id="connMsg" class="msg hidden"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="testConn">Test connection</button>
+      <button id="saveConn" class="primary">Save and close</button>
+      <button id="closeConn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset modal -->
+<div id="resetModal" class="modal hidden">
+  <div class="box">
+    <h3>↺ Reset the case rounds?</h3>
+    <p>The current conversation will be cleared.</p>
+    <div class="row">
+      <button id="restartCase" class="primary">Restart this case</button>
+      <button id="backSetup">Back to setup</button>
+      <button id="cancelReset">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SETTINGS. Put your Worker address between the quotes.
+   ============================================================ */
+const CONFIG = {
+  WORKER_URL: "",
+};
+
+/* ---------- small helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d = "") { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function showMsg(el, text, kind = "info") { el.className = "msg " + kind; el.textContent = text; el.classList.remove("hidden"); }
+function hideMsg(el) { el.classList.add("hidden"); }
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Could not load " + src)); document.head.appendChild(s); });
+}
+
+/* ---------- state ---------- */
+const S = {
+  caseText: "", caseLabel: "", key: null, keyFor: "",
+  level: "clinical", total: 10, redHerring: true, tier: "balanced", name: "",
+  messages: [], transcript: [], status: "setup", // setup | preparing | running | held | ended
+  busy: false, phase: "Starting", q: 0, diff: "standard",
+  seconds: 0, timerId: null, systemBlock: null, pendingDone: false,
+};
+
+const LEVELS = {
+  preclinical: { label: "pre-clinical medical student (years one to two)", desc: "Focus on recognising the key history and examination findings, linking them to basic anatomy, physiology and pathology, and naming broad categories of disease. Use simple, well-scaffolded questions and generous hints. Keep tests and treatment to first principles.", start: "basic" },
+  clinical: { label: "clinical medical student (years three to four)", desc: "Expect a structured case summary, the important positive and negative findings, a reasonable differential diagnosis with reasons for and against, sensible first-line tests and the main principles of treatment. Push for justification.", start: "standard" },
+  intern: { label: "intern or first-year resident", desc: "Expect a prioritised differential diagnosis, immediate stabilisation and safety priorities, specific tests and what each result would show, initial management with practical details, and when to escalate or involve specialists.", start: "standard" },
+  senior: { label: "senior resident (years two to three)", desc: "Expect nuanced discrimination between close differentials, interpretation of test results and their pitfalls, complications and how to monitor for them, evidence-based treatment choices, reporting duties, and communication with the family.", start: "advanced" },
+  fellow: { label: "fellow or registrar", desc: "Expect expert reasoning: pathophysiology at the mechanism level, subtle distinguishing features, limits of the tests, controversies and guideline differences, rare complications, system-level and public health aspects, and how they would teach this case to juniors.", start: "expert" },
+};
+
+/* ---------- connection ---------- */
+function workerUrl() { return (store.get("bernd.worker") || CONFIG.WORKER_URL || "").trim().replace(/\/+$/, ""); }
+function accessCode() { return store.get("bernd.code", ""); }
+function updateBadge(ok) {
+  const b = $("connBadge");
+  if (ok === true) { b.textContent = "Connected"; b.className = "badge ok"; }
+  else if (ok === false) { b.textContent = "Connection problem"; b.className = "badge bad"; }
+  else { b.textContent = workerUrl() && accessCode() ? "Connection saved" : "Not connected"; b.className = "badge"; }
+}
+$("connBtn").onclick = () => { $("workerUrl").value = workerUrl(); $("accessCode").value = accessCode(); hideMsg($("connMsg")); $("connModal").classList.remove("hidden"); };
+$("closeConn").onclick = () => $("connModal").classList.add("hidden");
+$("saveConn").onclick = () => { store.set("bernd.worker", $("workerUrl").value.trim()); store.set("bernd.code", $("accessCode").value); $("connModal").classList.add("hidden"); updateBadge(); };
+$("testConn").onclick = async () => {
+  const url = $("workerUrl").value.trim().replace(/\/+$/, ""), code = $("accessCode").value;
+  if (!url) return showMsg($("connMsg"), "Paste your Worker address first.", "err");
+  showMsg($("connMsg"), "Testing…", "info");
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Access-Code": code }, body: JSON.stringify({ ping: true, accessCode: code }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.pong) { showMsg($("connMsg"), "✔ Connected. Access code accepted.", "ok"); updateBadge(true); }
+    else if (r.ok) showMsg($("connMsg"), "The Worker answered, but it looks like old Worker code. Paste the new worker.js into Cloudflare and click Deploy.", "err");
+    else showMsg($("connMsg"), "✖ " + (d.error?.message || d.error || ("HTTP " + r.status)), "err");
+  } catch (e) { showMsg($("connMsg"), "✖ Could not reach the Worker. Check the address (open it in a new tab: it should show \"ok\":true).", "err"); }
+};
+
+async function callClaude({ system, messages, max_tokens = 900, tier = S.tier }) {
+  const url = workerUrl();
+  if (!url) throw new Error("No Worker address yet. Click ⚙ Connection (top right).");
+  const code = accessCode();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let r;
+    try {
+      r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Access-Code": code }, body: JSON.stringify({ tier, max_tokens, system, messages, accessCode: code }) });
+    } catch { throw new Error("Could not reach the Worker. Check ⚙ Connection and your internet."); }
+    const d = await r.json().catch(() => ({}));
+    if ((r.status === 429 || r.status === 529 || r.status === 503) && attempt < 2) { await new Promise((ok) => setTimeout(ok, 2500 * (attempt + 1))); continue; }
+    if (!r.ok || d.error) throw new Error(typeof d.error === "string" ? d.error : (d.error?.message || "HTTP " + r.status));
+    const t = d.text ?? (d.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+    updateBadge(true);
+    return t;
+  }
+}
+
+/* ---------- case files ---------- */
+async function loadSharedList() {
+  const sel = $("caseSelect");
+  try {
+    const r = await fetch("cases/cases.json", { cache: "no-store" });
+    const list = await r.json();
+    sel.innerHTML = '<option value="">(choose a shared case)</option>' + list.map((c) => `<option value="${esc(c.file)}">${esc(c.title)}</option>`).join("");
+  } catch { sel.innerHTML = '<option value="">(no shared cases found)</option>'; }
+}
+$("caseSelect").onchange = async (e) => {
+  const f = e.target.value; if (!f) return;
+  $("fileInput").value = "";
+  try {
+    const r = await fetch("cases/" + f, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    setCase(await r.text(), e.target.selectedOptions[0].textContent);
+  } catch (err) { showMsg($("caseStatus"), "Could not load that case: " + err.message, "err"); }
+};
+$("fileInput").onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  $("caseSelect").value = "";
+  showMsg($("caseStatus"), "Reading the file…", "info");
+  try {
+    const ext = f.name.split(".").pop().toLowerCase();
+    let text;
+    if (ext === "docx") text = await readDocx(f);
+    else if (ext === "pdf") text = await readPdf(f);
+    else text = await f.text();
+    setCase(text, f.name);
+  } catch (err) { showMsg($("caseStatus"), "Could not read the file: " + err.message, "err"); }
+};
+async function readDocx(file) {
+  if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const xml = await zip.file("word/document.xml").async("string");
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const out = [];
+  for (const p of doc.getElementsByTagNameNS(W, "p")) {
+    let line = "";
+    for (const n of p.getElementsByTagNameNS(W, "*")) {
+      if (n.localName === "t") line += n.textContent;
+      else if (n.localName === "tab") line += "\t";
+      else if (n.localName === "br") line += "\n";
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+async function readPdf(file) {
+  if (!window.pdfjsLib) {
+    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const c = await (await pdf.getPage(i)).getTextContent();
+    text += c.items.map((it) => it.str + (it.hasEOL ? "\n" : " ")).join("") + "\n";
+  }
+  if (text.trim().length < 50) throw new Error("This PDF seems to be a scanned picture. Save the case as .txt or .docx instead.");
+  return text;
+}
+function setCase(text, label) {
+  text = (text || "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (text.length < 80) { showMsg($("caseStatus"), "That file looks empty or too short to be a patient case.", "err"); return; }
+  if (text.length > 60000) text = text.slice(0, 60000);
+  S.caseText = text; S.caseLabel = label; S.key = null;
+  const words = text.split(/\s+/).length;
+  showMsg($("caseStatus"), `✔ Case loaded (${words} words). Doctor Bernd will read it when you start.`, "ok");
+}
+
+/* ---------- voices ---------- */
+const MALE_HINTS = /\b(male|man|guy|ryan|thomas|george|daniel|arthur|oliver|david|mark|james|aaron|fred|alex|brian|andrew|christopher|eric|roger|steffan|william|liam|connor|duncan|ralph|rishi|gordon|lee|tom|reed|rocko|grandpa|eddy)\b/i;
+const FEMALE_HINTS = /\b(female|woman|samantha|karen|moira|tessa|victoria|zira|hazel|susan|libby|sonia|natasha|jenny|aria|emma|serena|kate|fiona|catherine|allison|ava|joanna|salli|kimberly|ivy|amy|olivia|clara|emily|martha|nicky|shelley|sandy|flo|grandma)\b/i;
+let voices = [];
+function isMale(v) { return MALE_HINTS.test(v.name) && !FEMALE_HINTS.test(v.name); }
+function fillVoices() {
+  voices = speechSynthesis.getVoices();
+  const lang = $("langSelect").value, base = lang.slice(0, 2);
+  const list = voices.filter((v) => v.lang.replace("_", "-").startsWith(base));
+  list.sort((a, b) => (isMale(b) - isMale(a)) || ((b.lang.replace("_", "-") === lang) - (a.lang.replace("_", "-") === lang)) || a.name.localeCompare(b.name));
+  const saved = store.get("bernd.voice");
+  $("voiceSelect").innerHTML = list.map((v) => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})${isMale(v) ? " (male)" : ""}</option>`).join("") || "<option value=''>Default voice</option>";
+  if (saved && list.some((v) => v.name === saved)) $("voiceSelect").value = saved;
+}
+if ("speechSynthesis" in window) { fillVoices(); speechSynthesis.onvoiceschanged = fillVoices; }
+$("langSelect").onchange = fillVoices;
+$("voiceSelect").onchange = () => store.set("bernd.voice", $("voiceSelect").value);
+$("testVoice").onclick = (e) => { e.preventDefault(); Speech.speak("Good morning. I am Doctor Bernd, your consultant for today's case rounds. Shall we begin?", null, true); };
+
+/* ---------- speech output (sentence queue so Hold and Continuation work reliably) ---------- */
+const Speech = {
+  queue: [], idx: 0, gen: 0, onDone: null, active: false,
+  split(text) { return (text.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [text]).map((s) => s.trim()).filter(Boolean); },
+  speak(text, onDone, force = false) {
+    this.stop();
+    if (!("speechSynthesis" in window) || (!$("speakAloud").checked && !force)) { onDone && onDone(); return; }
+    this.queue = this.split(text); this.idx = 0; this.onDone = onDone;
+    if (S.status !== "held" || force) this.next();
+  },
+  next() {
+    const my = ++this.gen;
+    if (this.idx >= this.queue.length) { this.active = false; const cb = this.onDone; this.onDone = null; this.queue = []; setState(); cb && cb(); return; }
+    const u = new SpeechSynthesisUtterance(this.queue[this.idx]);
+    const v = voices.find((x) => x.name === $("voiceSelect").value);
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = $("langSelect").value;
+    u.rate = parseFloat($("rateSelect").value);
+    u.pitch = v && isMale(v) ? 1 : 0.8; // lower pitch if no male voice is available
+    const go = () => { if (my !== this.gen) return; this.idx++; this.next(); };
+    u.onend = go; u.onerror = go;
+    this.active = true; setState();
+    speechSynthesis.speak(u);
+  },
+  pause() { this.gen++; this.active = false; speechSynthesis.cancel(); },            // keeps idx: resumes at the same sentence
+  resume() { if (this.queue.length) this.next(); else return false; return true; },
+  stop() { this.gen++; this.active = false; this.queue = []; this.onDone = null; if ("speechSynthesis" in window) speechSynthesis.cancel(); },
+};
+
+/* ---------- speech input ---------- */
+const RecCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+const Rec = {
+  r: null, on: false, want: false, finalText: "", timer: null,
+  start() {
+    if (!RecCtor || !$("useMic").checked || S.status !== "running" || S.busy || Speech.active) return;
+    if (this.on) return;
+    this.want = true; this.finalText = $("answerBox").value ? $("answerBox").value + " " : "";
+    const r = new RecCtor(); this.r = r;
+    r.lang = $("langSelect").value; r.continuous = true; r.interimResults = true;
+    r.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) this.finalText += e.results[i][0].transcript + " ";
+        else interim += e.results[i][0].transcript;
+      }
+      $("answerBox").value = (this.finalText + interim).trimStart();
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => { if ($("answerBox").value.trim()) { this.stop(); submitAnswer(); } }, parseInt($("pauseSelect").value, 10));
+    };
+    r.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        this.want = false; $("useMic").checked = false;
+        showMsg($("sessionMsg"), "The microphone is blocked. Click the 🔒 icon left of the web address → Microphone: Allow → reload. You can type your answers meanwhile.", "err");
+      }
+    };
+    r.onend = () => { this.on = false; setState(); if (this.want && S.status === "running" && !S.busy && !Speech.active) setTimeout(() => this.start(), 250); };
+    try { r.start(); this.on = true; } catch { this.on = false; }
+    setState();
+  },
+  stop() { this.want = false; clearTimeout(this.timer); if (this.r) { try { this.r.stop(); } catch {} } this.on = false; setState(); },
+};
+$("micBtn").onclick = () => {
+  if (S.status !== "running" || S.busy) return;
+  if (Rec.on) { Rec.stop(); if ($("answerBox").value.trim()) submitAnswer(); }
+  else { if (!RecCtor) return showMsg($("sessionMsg"), "Voice input needs Google Chrome or Microsoft Edge. You can type instead.", "err"); Speech.pause(); Speech.queue = []; $("useMic").checked = true; Rec.start(); }
+};
+
+/* ---------- user interface state ---------- */
+function setState() {
+  const p = $("statePill"); let t = "Your turn", c = "pill state";
+  if (S.status === "held") { t = "⏸ On hold"; c += " held"; }
+  else if (S.status === "preparing") t = "Doctor Bernd is reading the case…";
+  else if (S.busy) t = "Doctor Bernd is thinking…";
+  else if (Speech.active) { t = "🔊 Doctor Bernd is speaking"; c += " speak"; }
+  else if (Rec.on) { t = "🎤 Listening…"; c += " listen"; }
+  else if (S.status === "ended") t = "Finished";
+  p.textContent = t; p.className = c;
+  $("micBtn").classList.toggle("on", Rec.on);
+  const running = S.status === "running";
+  $("holdBtn").disabled = !(running || S.status === "preparing");
+  $("contBtn").disabled = S.status !== "held";
+  $("sendBtn").disabled = !running || S.busy;
+  $("micBtn").disabled = !running || S.busy;
+  $("answerBox").disabled = !running || S.busy;
+  $("endBtn").disabled = S.status === "ended" || S.status === "setup";
+}
+function updateBar() { $("phase").textContent = S.phase; $("qNum").textContent = S.q; $("qTotal").textContent = S.total; $("diff").textContent = S.diff; }
+function tick() { if (S.status === "running") { S.seconds++; $("clock").textContent = String(Math.floor(S.seconds / 60)).padStart(2, "0") + ":" + String(S.seconds % 60).padStart(2, "0"); } }
+function addBubble(who, text) {
+  const d = document.createElement("div");
+  d.className = "bubble " + who;
+  if (who === "sys") d.textContent = text;
+  else d.innerHTML = `<div class="who">${who === "bernd" ? "Doctor Bernd" : esc(S.name || "You")}</div>${esc(text)}`;
+  $("chat").appendChild(d); $("chat").scrollTop = $("chat").scrollHeight;
+  return d;
+}
+
+/* ---------- prompts ---------- */
+function keyPrompt() {
+  return `You are an expert consultant paediatrician preparing a confidential teaching answer key for a case-based oral quiz. Read the patient case file and work out the most likely final diagnosis (if the file states the diagnosis, use it; if the file name hints at it, use that as a clue but check it against the case).
+Write every medical term in full: no abbreviations or acronyms at all (for example "intravenous", "cerebrospinal fluid", "electromyography", "degrees Celsius").
+Return ONLY valid JSON, no other text, with exactly these keys:
+{
+ "finalDiagnosis": "the final diagnosis",
+ "diagnosisStatedInFile": true or false (true if the case text itself names the final diagnosis),
+ "keyClue": "the single most important clue in the case and why",
+ "keyFindings": ["up to 8 important positive or negative findings"],
+ "differentials": [{"name": "...", "for": "...", "against": "..."}] (4 to 6 items, including the final diagnosis),
+ "redHerring": {"detail": "one tempting but misleading detail or alternative explanation, ideally taken from the case itself", "whyTempting": "...", "whyMisleading": "..."},
+ "tests": ["up to 6 key investigations with the expected result"],
+ "treatment": ["up to 6 key management steps"],
+ "extensionTopics": ["up to 4 advanced topics (complications, prevention, reporting, pathophysiology)"]
+}
+If the text is not a patient case, return {"finalDiagnosis": "NOT_A_CASE"}.`;
+}
+
+function turnSystem() {
+  const L = LEVELS[S.level], n = S.total;
+  const rhQ = Math.max(3, Math.round(n * 0.4));
+  const fdQ = Math.max(4, n - 1);
+  const rules = `You are Doctor Bernd, a male senior consultant (attending) paediatrician leading bedside case rounds. You are quizzing ${S.name ? S.name + ", " : ""}a ${L.label}. You are warm, encouraging and precise, but you expect clear clinical reasoning. Speak as Doctor Bernd in the first person.
+
+YOUR SPOKEN STYLE
+- Your words are read aloud. Use plain spoken sentences only: no lists, no bullet points, no headings, no markdown, no emojis.
+- Keep each turn short: at most about 80 words. Give brief feedback (one or two sentences), then ask exactly ONE question.
+- NEVER use abbreviations or acronyms of any kind. Always spell terms out in full (for example "intravenous" not "IV", "cerebrospinal fluid" not "CSF", "electromyography" not "EMG", "intensive care unit" not "ICU", "degrees Celsius", "milligrams per kilogram", "beats per minute"). If the learner uses an abbreviation, you may gently say the full term back.
+
+CONFIDENTIALITY OF THE DIAGNOSIS
+- You know the final diagnosis from the answer key, but you must NOT name it, hint at it, or confirm it in any phase before the final diagnosis phase. Do not mention its specific cause, toxin, organism or treatment by name in your own questions before then.
+- If the learner guesses it early, neither confirm nor deny: say something like "Hold that thought, we will come back to it" and ask them to justify it with findings.
+
+STRUCTURE (about ${n} questions in total)
+Work through these phases in order, adapting how many questions each phase gets:
+1. Case summary (ask the learner to summarise the case in a few sentences)
+2. Key findings
+3. Differential diagnosis
+4. Tests
+5. Treatment
+6. Final diagnosis: at about question ${fdQ}, ask the learner to commit to a final diagnosis and justify it. After their answer, tell them whether they are right and give the correct final diagnosis with the key clue.
+7. Extension (only if questions remain): one advanced question for this level.
+
+ADAPTIVE QUIZZING
+- Level guidance: ${L.desc}
+- Start at "${L.start}" difficulty. After a strong, well-justified answer, raise the difficulty (basic → standard → advanced → expert). After a weak or partial answer, give a short hint or break the question into a simpler step and lower the difficulty.
+- Never ask the same question more than twice. After a second weak attempt, give the correct answer in one or two sentences and move on.
+- If the learner says "I don't know", give a hint first. If they ask you to repeat, repeat the question.
+${S.redHerring ? `
+RED HERRING
+- At about question ${rhQ} (during the differential diagnosis or tests phase), introduce the red herring from the answer key as a tempting, plausible line of thought, without saying it is a red herring. For example: "Some colleagues in the emergency department wondered about ... What do you make of that?"
+- A strong learner will weigh it and reject it with evidence from the case; an average learner will follow it. Respond neutrally and ask what evidence supports or argues against it. Do not reveal that it was a red herring until the final diagnosis phase.` : ""}
+
+ENDING
+- When the final diagnosis phase (and any extension question) is complete, or about ${n} questions have been asked, thank the learner in one or two sentences, say you will now review the session together, and set done to yes.
+- If the learner's message is "[SESSION START]", greet them briefly as Doctor Bernd, set the scene in one neutral sentence without revealing the diagnosis, and ask your first question.
+
+METADATA (required)
+End EVERY reply with one final line exactly in this format (it is hidden from the learner):
+[[phase: <Case summary|Key findings|Differential diagnosis|Tests|Treatment|Final diagnosis|Extension|Closing>; question: <number of the question you just asked>; difficulty: <basic|standard|advanced|expert>; done: <yes|no>]]`;
+  return [
+    { type: "text", text: rules + "\n\nCONFIDENTIAL ANSWER KEY (never read it out):\n" + JSON.stringify(S.key, null, 1) + "\n\nPATIENT CASE FILE" + (S.caseLabel ? ` (file name: ${S.caseLabel})` : "") + ":\n" + S.caseText, cache_control: { type: "ephemeral" } },
+  ];
+}
+
+function parseJSON(t) {
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("no JSON");
+  return JSON.parse(t.slice(a, b + 1));
+}
+
+/* ---------- session flow ---------- */
+$("startBtn").onclick = startSession;
+async function startSession() {
+  hideMsg($("setupMsg"));
+  if (!S.caseText) return showMsg($("setupMsg"), "Please choose a patient case file first (Step 1).", "err");
+  if (!workerUrl() || !accessCode()) { showMsg($("setupMsg"), "Please set up the connection first: click ⚙ Connection (top right).", "err"); $("connBtn").click(); return; }
+  S.name = $("learnerName").value.trim(); S.level = $("levelSelect").value; S.total = parseInt($("lengthSelect").value, 10);
+  S.redHerring = $("redHerring").checked; S.tier = $("tierSelect").value;
+  $("setupCard").classList.add("hidden"); $("reviewCard").classList.add("hidden"); $("sessionCard").classList.remove("hidden");
+  resetConversation();
+  S.status = "preparing"; setState();
+  const sid = S.sid;
+  const note = addBubble("sys", "Doctor Bernd is reading the case file… (10 to 30 seconds)");
+  try {
+    const sig = S.caseText.length + ":" + S.caseText.slice(0, 200) + S.tier;
+    if (!S.key || S.keyFor !== sig) {
+      const t = await callClaude({ system: keyPrompt(), messages: [{ role: "user", content: (S.caseLabel ? `File name: ${S.caseLabel}\n\n` : "") + S.caseText }], max_tokens: 2000 });
+      S.key = parseJSON(t); S.keyFor = sig;
+    }
+    if (S.key.finalDiagnosis === "NOT_A_CASE") throw new Error("This file does not look like a patient case.");
+  } catch (e) {
+    if (sid !== S.sid) return;
+    note.remove(); S.status = "setup"; setState();
+    $("sessionCard").classList.add("hidden"); $("setupCard").classList.remove("hidden");
+    return showMsg($("setupMsg"), "Doctor Bernd could not start: " + e.message, "err");
+  }
+  if (sid !== S.sid) return;
+  note.textContent = "Case rounds started.";
+  if (!S.key.diagnosisStatedInFile) { $("caseToggle").classList.remove("hidden"); $("caseView").textContent = S.caseText; }
+  else $("caseToggle").classList.add("hidden");
+  S.status = S.status === "held" ? "held" : "running";
+  clearInterval(S.timerId); S.timerId = setInterval(tick, 1000);
+  berndTurn("[SESSION START]", true);
+}
+
+function resetConversation() {
+  Speech.stop(); Rec.stop(); S.sid = (S.sid || 0) + 1;
+  S.messages = []; S.transcript = []; S.q = 0; S.phase = "Starting"; S.diff = LEVELS[S.level].start; S.seconds = 0; S.busy = false; S.pendingDone = false;
+  $("chat").innerHTML = ""; $("answerBox").value = ""; $("clock").textContent = "00:00"; $("caseView").classList.add("hidden");
+  $("caseToggle").textContent = "📄 Show the patient case file";
+  hideMsg($("sessionMsg")); updateBar();
+}
+
+async function berndTurn(userText, hidden = false) {
+  S.messages.push({ role: "user", content: userText });
+  if (!hidden) { S.transcript.push({ who: "learner", text: userText }); addBubble("learner", userText); }
+  S.busy = true; setState();
+  const thinking = addBubble("sys", ""); thinking.innerHTML = '<span class="thinking">Doctor Bernd is thinking</span>';
+  let raw; const sid = S.sid;
+  try { raw = await callClaude({ system: turnSystem(), messages: S.messages, max_tokens: 700 }); }
+  catch (e) {
+    if (sid !== S.sid) return;
+    thinking.remove(); S.messages.pop(); S.busy = false;
+    if (!hidden) $("answerBox").value = userText;
+    showMsg($("sessionMsg"), "⚠ " + e.message + " Your answer is still in the box: press Send to try again.", "err");
+    setState(); return;
+  }
+  thinking.remove();
+  if (sid !== S.sid || S.status === "setup" || S.status === "ended") return; // reset or ended while waiting
+  const m = raw.match(/\[\[([^\]]*)\]\]\s*$/);
+  let text = raw.replace(/\[\[[^\]]*\]\]\s*$/, "").replace(/[*#_`]/g, "").trim();
+  let done = false;
+  if (m) {
+    const get = (k) => (m[1].match(new RegExp(k + "\\s*:\\s*([^;]+)", "i")) || [])[1]?.trim();
+    S.phase = get("phase") || S.phase; S.q = parseInt(get("question"), 10) || S.q; S.diff = get("difficulty") || S.diff;
+    done = /^y/i.test(get("done") || "");
+  }
+  S.messages.push({ role: "assistant", content: raw });
+  S.transcript.push({ who: "bernd", text });
+  addBubble("bernd", text); updateBar();
+  S.busy = false; S.pendingDone = done; setState();
+  Speech.speak(text, afterBerndSpoke);
+}
+function afterBerndSpoke() {
+  setState();
+  if (S.status !== "running") return;
+  if (S.pendingDone) { S.pendingDone = false; return endSession(); }
+  $("answerBox").focus();
+  Rec.start();
+}
+
+const STOP_RE = /^\s*(ok(ay)?[,.]?\s*)?(please\s+)?(stop|stop now|stop please|stop here|stop the (session|quiz|case|rounds|case rounds)|let'?s stop|i (want|would like) to stop|end( the)? (session|quiz))\s*(please)?\s*[.!]*\s*$/i;
+function submitAnswer() {
+  const t = $("answerBox").value.trim();
+  if (!t || S.busy || S.status !== "running") return;
+  Rec.stop(); Speech.stop(); hideMsg($("sessionMsg"));
+  $("answerBox").value = "";
+  if (STOP_RE.test(t)) { S.transcript.push({ who: "learner", text: t }); addBubble("learner", t); return endSession(); }
+  berndTurn(t);
+}
+$("sendBtn").onclick = submitAnswer;
+$("answerBox").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); } });
+$("answerBox").addEventListener("input", () => { if (Rec.on) { Rec.finalText = $("answerBox").value + " "; } });
+
+/* Hold / Continuation / Reset / End */
+$("holdBtn").onclick = () => {
+  if (S.status !== "running" && S.status !== "preparing") return;
+  S.wasPreparing = S.status === "preparing";
+  S.status = "held"; Rec.stop(); Speech.pause(); setState();
+  addBubble("sys", "⏸ Case rounds on hold. Press ▶ Continuation when you are ready.");
+};
+$("contBtn").onclick = () => {
+  if (S.status !== "held") return;
+  S.status = "running"; addBubble("sys", "▶ Continuing.");
+  setState();
+  if (S.busy) return;                          // a reply is still on its way; it will be spoken when it arrives
+  if (!Speech.resume()) afterBerndSpoke();     // repeat the interrupted sentence, or start listening
+};
+$("resetBtn").onclick = () => $("resetModal").classList.remove("hidden");
+$("cancelReset").onclick = () => $("resetModal").classList.add("hidden");
+$("restartCase").onclick = () => {
+  $("resetModal").classList.add("hidden"); S.status = "setup"; resetConversation();
+  $("reviewCard").classList.add("hidden"); startSession();
+};
+$("backSetup").onclick = () => {
+  $("resetModal").classList.add("hidden"); S.status = "setup"; resetConversation(); clearInterval(S.timerId);
+  $("sessionCard").classList.add("hidden"); $("reviewCard").classList.add("hidden"); $("setupCard").classList.remove("hidden"); setState();
+};
+$("endBtn").onclick = () => { if (S.status !== "ended" && S.status !== "setup") endSession(); };
+$("caseToggle").onclick = () => {
+  const v = $("caseView"); v.classList.toggle("hidden");
+  $("caseToggle").textContent = v.classList.contains("hidden") ? "📄 Show the patient case file" : "📄 Hide the patient case file";
+};
+
+/* ---------- review ---------- */
+async function endSession() {
+  S.status = "ended"; Rec.stop(); Speech.stop(); clearInterval(S.timerId); setState();
+  const answers = S.transcript.filter((x) => x.who === "learner" && !STOP_RE.test(x.text)).length;
+  addBubble("sys", "⏹ Session ended. Doctor Bernd is preparing your review…");
+  const rc = $("reviewCard"); rc.classList.remove("hidden");
+  if (answers === 0) { rc.innerHTML = `<h2>Session review</h2><p>No answers were given, so there is nothing to review yet.</p>${reviewButtons()}`; wireReviewButtons(); return; }
+  rc.innerHTML = '<h2>Session review</h2><p class="thinking">Doctor Bernd is reviewing the session</p>';
+  rc.scrollIntoView({ behavior: "smooth" });
+  const transcript = S.transcript.map((x) => (x.who === "bernd" ? "Doctor Bernd: " : "Learner: ") + x.text).join("\n");
+  const sys = `You are Doctor Bernd, a senior consultant paediatrician, reviewing a case-rounds quiz with a ${LEVELS[S.level].label}. Judge fairly for that level. Be concise and specific. Write every term in full: no abbreviations or acronyms.
+Return ONLY valid JSON with exactly these keys:
+{
+ "score": integer 0 to 100,
+ "band": "Excellent" | "Good" | "Average" | "Needs more work",
+ "spokenSummary": "two or three sentences, at most 60 words, spoken directly to the learner",
+ "finalDiagnosis": {"learnerAnswer": "what they said, or Not reached", "correct": "the correct final diagnosis", "verdict": "Correct" | "Partly correct" | "Incorrect" | "Not reached"},
+ "redHerring": {"detail": "the red herring used, or None", "handling": "Rejected with good reasoning" | "Hesitated" | "Accepted it" | "Not reached" | "Not used", "comment": "one short sentence"},
+ "strengths": ["at most 3 short points"],
+ "improvements": [{"point": "short point", "how": "one concrete way to practise"}] (at most 4),
+ "nextFocus": "one line",
+ "questions": [{"question": "short paraphrase", "verdict": "Strong" | "Partial" | "Missed", "tip": "one short teaching point"}]
+}
+If the session ended early, review only what was covered.
+
+CONFIDENTIAL ANSWER KEY:
+${JSON.stringify(S.key)}
+
+CASE FILE:
+${S.caseText}`;
+  let R;
+  try {
+    R = parseJSON(await callClaude({ system: sys, messages: [{ role: "user", content: "Here is the full session transcript. Please review it.\n\n" + transcript }], max_tokens: 2000 }));
+  } catch (e) {
+    rc.innerHTML = `<h2>Session review</h2><div class="msg err">The review could not be made: ${esc(e.message)}</div><button id="retryReview" class="primary">Try again</button> ${reviewButtons()}`;
+    $("retryReview").onclick = () => { S.status = "running"; endSession(); }; wireReviewButtons(); return;
+  }
+  S.review = R;
+  renderReview(R);
+  Speech.speak(R.spokenSummary || "", null);
+}
+function li(arr, f = (x) => esc(x)) { return (arr || []).length ? "<ul>" + arr.map((x) => "<li>" + f(x) + "</li>").join("") + "</ul>" : "<p>None.</p>"; }
+function renderReview(R) {
+  const mins = Math.round(S.seconds / 60);
+  $("reviewCard").innerHTML = `
+  <h2>Session review · Doctor Bernd</h2>
+  <div class="scorebox"><span class="score">${esc(R.score)}/100</span><span class="band">${esc(R.band)}</span>
+    <span class="hint">${esc(S.name || "Learner")} · ${esc(LEVELS[S.level].label)} · ${S.q} questions · ${mins} min</span></div>
+  <p><i>“${esc(R.spokenSummary)}”</i></p>
+  <h3>Summary</h3>
+  <ul>
+    <li><b>Final diagnosis:</b> ${esc(R.finalDiagnosis?.verdict)}. You said: ${esc(R.finalDiagnosis?.learnerAnswer)}. Correct: <b>${esc(R.finalDiagnosis?.correct)}</b>.</li>
+    <li><b>Red herring:</b> ${esc(R.redHerring?.handling)}${R.redHerring?.detail && R.redHerring.detail !== "None" ? " (" + esc(R.redHerring.detail) + ")" : ""}. ${esc(R.redHerring?.comment)}</li>
+  </ul>
+  <h3>Strengths</h3>${li(R.strengths)}
+  <h3>Recommended improvements</h3>${li(R.improvements, (x) => `<b>${esc(x.point)}</b> · ${esc(x.how)}`)}
+  <h3>Focus for next session</h3><ul><li>${esc(R.nextFocus)}</li></ul>
+  <details><summary>Question by question</summary>
+    <table class="q"><tr><th>#</th><th>Question</th><th>Verdict</th><th>Teaching point</th></tr>
+    ${(R.questions || []).map((q, i) => `<tr><td>${i + 1}</td><td>${esc(q.question)}</td><td class="v-${esc(q.verdict)}">${esc(q.verdict)}</td><td>${esc(q.tip)}</td></tr>`).join("")}</table>
+  </details>
+  <details><summary>Doctor Bernd's answer key</summary>
+    <p><b>Final diagnosis:</b> ${esc(S.key.finalDiagnosis)}<br><b>Key clue:</b> ${esc(S.key.keyClue)}</p>
+    <b>Differential diagnosis</b>${li(S.key.differentials, (d) => `<b>${esc(d.name)}</b>: for: ${esc(d.for)}; against: ${esc(d.against)}`)}
+    <b>Tests</b>${li(S.key.tests)}<b>Treatment</b>${li(S.key.treatment)}
+  </details>
+  <details><summary>Full transcript</summary><div style="white-space:pre-wrap;font-size:.85rem">${esc(S.transcript.map((x) => (x.who === "bernd" ? "Doctor Bernd: " : (S.name || "Learner") + ": ") + x.text).join("\n\n"))}</div></details>
+  ${reviewButtons()}`;
+  wireReviewButtons();
+}
+function reviewButtons() {
+  return `<div class="row noprint" style="margin-top:16px">
+    <button id="rvSpeak">🔊 Hear summary</button><button id="rvCopy">📋 Copy report</button><button id="rvDl">⬇ Download report</button>
+    <button id="rvPrint">🖨 Print or save as PDF</button><button id="rvAgain" class="primary">↺ Same case again</button><button id="rvNew">New case or level</button></div>`;
+}
+function reportText() {
+  const R = S.review; if (!R) return "";
+  return [`DOCTOR BERND'S CASE ROUNDS: SESSION REVIEW`, `Learner: ${S.name || "-"} | Level: ${LEVELS[S.level].label} | Date: ${new Date().toLocaleString()}`,
+    `Score: ${R.score}/100 (${R.band})`, ``, R.spokenSummary, ``,
+    `- Final diagnosis: ${R.finalDiagnosis?.verdict}. Learner: ${R.finalDiagnosis?.learnerAnswer}. Correct: ${R.finalDiagnosis?.correct}`,
+    `- Red herring: ${R.redHerring?.handling} (${R.redHerring?.detail}). ${R.redHerring?.comment}`, ``, `STRENGTHS`, ...(R.strengths || []).map((s) => "- " + s), ``,
+    `RECOMMENDED IMPROVEMENTS`, ...(R.improvements || []).map((x) => `- ${x.point}: ${x.how}`), ``, `NEXT FOCUS: ${R.nextFocus}`, ``,
+    `QUESTION BY QUESTION`, ...(R.questions || []).map((q, i) => `${i + 1}. ${q.question} [${q.verdict}] ${q.tip}`), ``,
+    `TRANSCRIPT`, ...S.transcript.map((x) => (x.who === "bernd" ? "Doctor Bernd: " : "Learner: ") + x.text)].join("\n");
+}
+function wireReviewButtons() {
+  const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
+  on("rvSpeak", () => S.review && Speech.speak(S.review.spokenSummary, null, true));
+  on("rvCopy", async () => { try { await navigator.clipboard.writeText(reportText()); $("rvCopy").textContent = "✔ Copied"; } catch { alert("Copy failed. Use Download instead."); } });
+  on("rvDl", () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([reportText()], { type: "text/plain" })); a.download = `doctor-bernd-review-${(S.name || "learner").replace(/\W+/g, "-")}-${new Date().toISOString().slice(0, 10)}.txt`; a.click(); });
+  on("rvPrint", () => window.print());
+  on("rvAgain", () => { $("restartCase").click(); });
+  on("rvNew", () => { $("backSetup").click(); });
+}
+
+/* ---------- init ---------- */
+loadSharedList(); updateBadge(); setState();
+if (!RecCtor) $("useMic").parentElement.insertAdjacentHTML("afterend", '<div class="hint">Voice answers need Chrome or Edge; you can still type.</div>');
+</script>
+</body>
+</html>
