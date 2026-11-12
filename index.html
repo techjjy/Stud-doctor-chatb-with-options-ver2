@@ -881,7 +881,7 @@ function parseState(raw){
 async function askBernd(myRun){
   S.busy = true; updateControls(); showTyping(true);
   try{
-    const r = await callClaude({ system: S.quizSystem, messages: S.messages, max_tokens: 4000 });
+    const r = await callClaude({ system: S.quizSystem, messages: S.messages, max_tokens: 8000 });
     if(myRun !== S.runId) return;
     showTyping(false);
     const { state, clean } = parseState(r.text);
